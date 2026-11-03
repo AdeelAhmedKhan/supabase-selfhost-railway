@@ -1,0 +1,853 @@
+{
+  "_note": "Transcription of the exact Railway Template Composer settings for the Supabase Self-Hosted template. Railway does NOT read this file automatically \u2014 enter these settings in the Template Composer when publishing, and check the published page against this file. Source repo: https://github.com/AdeelAhmedKhan/supabase-selfhost-railway (slim repo: official docker/ plus railway/ adaptation), branch main. Build context for every Dockerfile service is the repo root, so COPY paths are root-relative.",
+  "buckets": [
+    {
+      "name": "StorageBucket",
+      "note": "Railway Bucket, auto-provisioned at deploy. The Storage service references its S3 credentials. Buckets are private; files are served through the storage API, never directly."
+    }
+  ],
+  "category": "Databases",
+  "category_note": "If the composer offers no Databases category, use the closest backend/database category it shows and note the change here.",
+  "description": "Full Supabase stack in one click: database, auth, storage, Studio",
+  "deviationsFromOfficial": [
+    "ENABLE_EMAIL_AUTOCONFIRM is true (official default false) so signup works on first run without an SMTP server. Add SMTP and flip it to false for production.",
+    "Storage backend is a Railway Bucket (S3) instead of a local disk volume.",
+    "No shared volume between Storage and Imgproxy (Railway volumes attach to one service only).",
+    "Studio's edge-functions folder is an empty volume in v1; functions code lives in the Functions image.",
+    "Gateway listens on an explicit PORT=8000 so public and private traffic use the same port."
+  ],
+  "name": "Supabase Self-Hosted",
+  "notIncluded": [
+    "Logs and analytics services (separate official overlay, not the base compose)",
+    "SMTP email sending (configure post-deploy; signup works without it because autoconfirm is on by default, see deviations)",
+    "Custom domain setup (add your domain to the gateway service after deploy)",
+    "Backups (snapshot the Postgres volume or schedule dumps)",
+    "Asymmetric sb_ API keys (optional follow-up per official docs; this template runs legacy HS256 keys)"
+  ],
+  "services": [
+    {
+      "build": {
+        "dockerfilePath": "railway/services/gateway/Dockerfile",
+        "note": "Railway builds this image at deploy time from the fork. The entrypoint derives ANON_KEY and SERVICE_ROLE_KEY from JWT_SECRET, builds the Envoy config from the official templates, points backend clusters at Railway private domains, and prints the Supabase URL and anon key to the deploy log."
+      },
+      "healthcheck": {
+        "note": "Envoy admin lives on 127.0.0.1:9901 inside the container and is not public. Health is proven by the gateway answering on its public domain after deploy (first deploy check), not by process liveness alone."
+      },
+      "name": "Gateway",
+      "publicNetworking": true,
+      "startCommand": null,
+      "variables": {
+        "ANON_KEY_ASYMMETRIC": {
+          "note": "Empty: legacy-only mode. Asymmetric sb_ keys are an optional follow-up per official docs.",
+          "value": ""
+        },
+        "AUTH_HOST": {
+          "note": "Railway reference variable. Used by the gateway entrypoint to rewrite the auth cluster endpoint in cds.yaml.",
+          "value": "${{Auth.RAILWAY_PRIVATE_DOMAIN}}"
+        },
+        "DASHBOARD_PASSWORD": {
+          "note": "Generated at deploy time. Dashboard login password; find it in the Gateway service Variables tab after deploy.",
+          "value": "<generated at deploy time>"
+        },
+        "DASHBOARD_USERNAME": {
+          "note": "Dashboard login name.",
+          "value": "supabase"
+        },
+        "FUNCTIONS_HOST": {
+          "note": "Railway reference variable. Used by the gateway entrypoint to rewrite the functions cluster endpoint in cds.yaml.",
+          "value": "${{Functions.RAILWAY_PRIVATE_DOMAIN}}"
+        },
+        "JWT_SECRET": {
+          "note": "Generated at deploy time, defined ONCE here, referenced by every other service. Never generate it per service or authentication breaks.",
+          "value": "<generated at deploy time>"
+        },
+        "META_HOST": {
+          "note": "Railway reference variable. Used by the gateway entrypoint to rewrite the meta cluster endpoint in cds.yaml.",
+          "value": "${{Meta.RAILWAY_PRIVATE_DOMAIN}}"
+        },
+        "PORT": {
+          "note": "Explicit 8000 so public traffic and private traffic use the same gateway port. Verify the composer accepts this override at publish time.",
+          "value": "8000"
+        },
+        "REALTIME_HOST": {
+          "note": "Railway reference variable. Used by the gateway entrypoint to rewrite the realtime cluster endpoint in cds.yaml.",
+          "value": "${{Realtime.RAILWAY_PRIVATE_DOMAIN}}"
+        },
+        "REST_HOST": {
+          "note": "Railway reference variable. Used by the gateway entrypoint to rewrite the rest cluster endpoint in cds.yaml.",
+          "value": "${{REST.RAILWAY_PRIVATE_DOMAIN}}"
+        },
+        "SERVICE_ROLE_KEY_ASYMMETRIC": {
+          "note": "Empty: legacy-only mode.",
+          "value": ""
+        },
+        "STORAGE_HOST": {
+          "note": "Railway reference variable. Used by the gateway entrypoint to rewrite the storage cluster endpoint in cds.yaml.",
+          "value": "${{Storage.RAILWAY_PRIVATE_DOMAIN}}"
+        },
+        "STUDIO_HOST": {
+          "note": "Railway reference variable. Used by the gateway entrypoint to rewrite the studio cluster endpoint in cds.yaml.",
+          "value": "${{Studio.RAILWAY_PRIVATE_DOMAIN}}"
+        },
+        "SUPABASE_PUBLIC_URL": {
+          "note": "Self-reference to the gateway public domain. Verify the composer accepts it; if it rejects self-reference, leave this empty on Gateway and keep the cross-service references.",
+          "value": "https://${{Gateway.RAILWAY_PUBLIC_DOMAIN}}"
+        },
+        "SUPABASE_PUBLISHABLE_KEY": {
+          "note": "Empty: legacy-only mode.",
+          "value": ""
+        },
+        "SUPABASE_SECRET_KEY": {
+          "note": "Empty: legacy-only mode.",
+          "value": ""
+        }
+      }
+    },
+    {
+      "build": {
+        "dockerfilePath": "railway/services/db/Dockerfile",
+        "note": "FROM supabase/postgres:17.6.1.136 plus the four official init scripts copied into /docker-entrypoint-initdb.d/. The postgresql.conf comes from the image itself."
+      },
+      "healthcheck": {
+        "note": "Database services have no HTTP healthcheck path. Health is proven by an authenticated psql connection, not by process liveness alone."
+      },
+      "name": "Postgres",
+      "publicNetworking": false,
+      "startCommand": null,
+      "variables": {
+        "JWT_EXP": {
+          "note": "Official default.",
+          "value": "3600"
+        },
+        "PGDATABASE": {
+          "note": "Official default.",
+          "value": "postgres"
+        },
+        "PGPORT": {
+          "note": "Official default.",
+          "value": "5432"
+        },
+        "PGSODIUM_ROOT_KEY": {
+          "note": "Generated at deploy time, defined here. Never change it after the first deploy unless following the upstream rotation guide.",
+          "value": "<generated at deploy time>"
+        },
+        "POSTGRES_DB": {
+          "note": "Official default.",
+          "value": "postgres"
+        },
+        "POSTGRES_HOST": {
+          "note": "Official db-service value: local socket path inside this container.",
+          "value": "/var/run/postgresql"
+        },
+        "POSTGRES_PASSWORD": {
+          "note": "Generated at deploy time, defined ONCE here, referenced by every other service. Never change it after the first deploy unless following the upstream rotation guide.",
+          "value": "<generated at deploy time>"
+        },
+        "POSTGRES_PORT": {
+          "note": "Official default.",
+          "value": "5432"
+        }
+      },
+      "volumes": [
+        {
+          "mountPath": "/var/lib/postgresql/data",
+          "note": "Persistent volume. Without it, all data is lost on redeploy."
+        }
+      ]
+    },
+    {
+      "build": {
+        "dockerfilePath": "railway/services/studio/Dockerfile",
+        "note": "FROM supabase/studio:2026.10.12-sha-3699278 plus an entrypoint that derives SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY from JWT_SECRET at startup."
+      },
+      "name": "Studio",
+      "publicNetworking": false,
+      "startCommand": null,
+      "variables": {
+        "AUTH_JWT_SECRET": {
+          "note": "Railway reference variable.",
+          "value": "${{Gateway.JWT_SECRET}}"
+        },
+        "DEFAULT_ORGANIZATION_NAME": {
+          "note": "Official default.",
+          "value": "Default Organization"
+        },
+        "DEFAULT_PROJECT_NAME": {
+          "note": "Official default.",
+          "value": "Default Project"
+        },
+        "EDGE_FUNCTIONS_MANAGEMENT_FOLDER": {
+          "note": "Empty volume in v1: functions code lives in the Functions image, so Studio's Functions browser shows an empty folder. Functions still run at /functions/v1/<name>.",
+          "value": "/app/edge-functions"
+        },
+        "ENABLED_FEATURES_LOGS_ALL": {
+          "note": "Official default: logs services are not part of this template.",
+          "value": "false"
+        },
+        "HOSTNAME": {
+          "note": "Official default.",
+          "value": "0.0.0.0"
+        },
+        "OPENAI_API_KEY": {
+          "note": "Optional. Leave empty unless you want Studio's AI features.",
+          "value": ""
+        },
+        "PGRST_DB_EXTRA_SEARCH_PATH": {
+          "note": "Official default.",
+          "value": "public"
+        },
+        "PGRST_DB_MAX_ROWS": {
+          "note": "Official default.",
+          "value": "1000"
+        },
+        "PGRST_DB_SCHEMAS": {
+          "note": "Official default.",
+          "value": "public,graphql_public"
+        },
+        "PG_META_CRYPTO_KEY": {
+          "note": "Railway reference variable.",
+          "value": "${{Meta.PG_META_CRYPTO_KEY}}"
+        },
+        "POSTGRES_DB": {
+          "note": "Official default.",
+          "value": "postgres"
+        },
+        "POSTGRES_HOST": {
+          "note": "Railway reference variable.",
+          "value": "${{Postgres.RAILWAY_PRIVATE_DOMAIN}}"
+        },
+        "POSTGRES_PASSWORD": {
+          "note": "Railway reference variable.",
+          "value": "${{Postgres.POSTGRES_PASSWORD}}"
+        },
+        "POSTGRES_PORT": {
+          "note": "Official default.",
+          "value": "5432"
+        },
+        "POSTGRES_USER_READ_WRITE": {
+          "note": "Official default.",
+          "value": "postgres"
+        },
+        "SNIPPETS_MANAGEMENT_FOLDER": {
+          "note": "Backed by the snippets volume below.",
+          "value": "/app/snippets"
+        },
+        "STUDIO_PG_META_URL": {
+          "note": "Railway reference variable plus the meta internal port.",
+          "value": "http://${{Meta.RAILWAY_PRIVATE_DOMAIN}}:8080"
+        },
+        "SUPABASE_ANON_KEY": {
+          "note": "DO NOT SET in the composer. Derived at container start by the Studio entrypoint from JWT_SECRET.",
+          "value": null
+        },
+        "SUPABASE_PUBLIC_URL": {
+          "note": "Railway reference variable.",
+          "value": "https://${{Gateway.RAILWAY_PUBLIC_DOMAIN}}"
+        },
+        "SUPABASE_PUBLISHABLE_KEY": {
+          "note": "Empty: legacy-only mode.",
+          "value": ""
+        },
+        "SUPABASE_SECRET_KEY": {
+          "note": "Empty: legacy-only mode.",
+          "value": ""
+        },
+        "SUPABASE_SERVICE_KEY": {
+          "note": "DO NOT SET in the composer. Derived at container start by the Studio entrypoint from JWT_SECRET.",
+          "value": null
+        },
+        "SUPABASE_URL": {
+          "note": "Railway reference variable plus the gateway internal port.",
+          "value": "http://${{Gateway.RAILWAY_PRIVATE_DOMAIN}}:8000"
+        }
+      },
+      "volumes": [
+        {
+          "mountPath": "/app/snippets",
+          "note": "Saved SQL snippets persist across redeploys."
+        },
+        {
+          "mountPath": "/app/edge-functions",
+          "note": "Empty in v1 (see EDGE_FUNCTIONS_MANAGEMENT_FOLDER note). Guarantees the directory exists so Studio does not error."
+        }
+      ]
+    },
+    {
+      "image": "supabase/gotrue:v2.197.0",
+      "name": "Auth",
+      "publicNetworking": false,
+      "startCommand": null,
+      "variables": {
+        "API_EXTERNAL_URL": {
+          "note": "Railway reference variable plus the auth path, matching the official .env.example shape.",
+          "value": "https://${{Gateway.RAILWAY_PUBLIC_DOMAIN}}/auth/v1"
+        },
+        "GOTRUE_API_HOST": {
+          "note": "Official default.",
+          "value": "0.0.0.0"
+        },
+        "GOTRUE_API_PORT": {
+          "note": "Official default.",
+          "value": "9999"
+        },
+        "GOTRUE_DB_DATABASE_URL": {
+          "note": "Railway reference variables. The auth admin database user is created by the official db init scripts.",
+          "value": "postgres://supabase_auth_admin:${{Postgres.POSTGRES_PASSWORD}}@${{Postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/postgres"
+        },
+        "GOTRUE_DB_DRIVER": {
+          "note": "Official default.",
+          "value": "postgres"
+        },
+        "GOTRUE_DISABLE_SIGNUP": {
+          "note": "Official default: signup open.",
+          "value": "false"
+        },
+        "GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED": {
+          "note": "Official default.",
+          "value": "false"
+        },
+        "GOTRUE_EXTERNAL_EMAIL_ENABLED": {
+          "note": "Official default.",
+          "value": "true"
+        },
+        "GOTRUE_EXTERNAL_PHONE_ENABLED": {
+          "note": "Phone signup off by default; needs an SMS provider.",
+          "value": "false"
+        },
+        "GOTRUE_JWT_ADMIN_ROLES": {
+          "note": "Official default.",
+          "value": "service_role"
+        },
+        "GOTRUE_JWT_AUD": {
+          "note": "Official default.",
+          "value": "authenticated"
+        },
+        "GOTRUE_JWT_DEFAULT_GROUP_NAME": {
+          "note": "Official default.",
+          "value": "authenticated"
+        },
+        "GOTRUE_JWT_EXP": {
+          "note": "Official default.",
+          "value": "3600"
+        },
+        "GOTRUE_JWT_ISSUER": {
+          "note": "Matches API_EXTERNAL_URL, as in official compose.",
+          "value": "https://${{Gateway.RAILWAY_PUBLIC_DOMAIN}}/auth/v1"
+        },
+        "GOTRUE_JWT_SECRET": {
+          "note": "Railway reference variable.",
+          "value": "${{Gateway.JWT_SECRET}}"
+        },
+        "GOTRUE_MAILER_AUTOCONFIRM": {
+          "note": "DEVIATION from official default (false): true so signup works on first run without an SMTP server. Add SMTP and flip this to false for production.",
+          "value": "true"
+        },
+        "GOTRUE_MAILER_URLPATHS_CONFIRMATION": {
+          "note": "Empty until SMTP is configured.",
+          "value": ""
+        },
+        "GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE": {
+          "note": "Empty until SMTP is configured.",
+          "value": ""
+        },
+        "GOTRUE_MAILER_URLPATHS_INVITE": {
+          "note": "Empty until SMTP is configured.",
+          "value": ""
+        },
+        "GOTRUE_MAILER_URLPATHS_RECOVERY": {
+          "note": "Empty until SMTP is configured.",
+          "value": ""
+        },
+        "GOTRUE_SITE_URL": {
+          "note": "Starts as the gateway URL. Change this to your app URL after deploy so auth emails and redirects point at your app.",
+          "value": "https://${{Gateway.RAILWAY_PUBLIC_DOMAIN}}"
+        },
+        "GOTRUE_SMS_AUTOCONFIRM": {
+          "note": "Official default.",
+          "value": "false"
+        },
+        "GOTRUE_SMTP_ADMIN_EMAIL": {
+          "note": "Empty until SMTP is configured.",
+          "value": ""
+        },
+        "GOTRUE_SMTP_HOST": {
+          "note": "Empty until SMTP is configured.",
+          "value": ""
+        },
+        "GOTRUE_SMTP_PASS": {
+          "note": "Empty until SMTP is configured.",
+          "value": ""
+        },
+        "GOTRUE_SMTP_PORT": {
+          "note": "Empty until SMTP is configured.",
+          "value": ""
+        },
+        "GOTRUE_SMTP_SENDER_NAME": {
+          "note": "Empty until SMTP is configured.",
+          "value": ""
+        },
+        "GOTRUE_SMTP_USER": {
+          "note": "Empty until SMTP is configured.",
+          "value": ""
+        },
+        "GOTRUE_URI_ALLOW_LIST": {
+          "note": "Empty by default. Add your app URLs here (comma separated) when you connect an app.",
+          "value": ""
+        }
+      }
+    },
+    {
+      "image": "postgrest/postgrest:v14.18",
+      "name": "REST",
+      "publicNetworking": false,
+      "startCommand": "postgrest",
+      "variables": {
+        "PGRST_ADMIN_SERVER_HOST": {
+          "note": "Official default.",
+          "value": "localhost"
+        },
+        "PGRST_ADMIN_SERVER_PORT": {
+          "note": "Official default.",
+          "value": "3001"
+        },
+        "PGRST_APP_SETTINGS_JWT_EXP": {
+          "note": "Official default.",
+          "value": "3600"
+        },
+        "PGRST_DB_ANON_ROLE": {
+          "note": "Official default.",
+          "value": "anon"
+        },
+        "PGRST_DB_EXTRA_SEARCH_PATH": {
+          "note": "Official default.",
+          "value": "public"
+        },
+        "PGRST_DB_MAX_ROWS": {
+          "note": "Official default.",
+          "value": "1000"
+        },
+        "PGRST_DB_SCHEMAS": {
+          "note": "Official default.",
+          "value": "public,graphql_public"
+        },
+        "PGRST_DB_URI": {
+          "note": "Railway reference variables. The authenticator database user is created by the official db init scripts.",
+          "value": "postgres://authenticator:${{Postgres.POSTGRES_PASSWORD}}@${{Postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/postgres"
+        },
+        "PGRST_DB_USE_LEGACY_GUCS": {
+          "note": "Official default.",
+          "value": "false"
+        },
+        "PGRST_JWT_SECRET": {
+          "note": "Railway reference variable. Legacy mode: the raw secret, not a JWKS.",
+          "value": "${{Gateway.JWT_SECRET}}"
+        }
+      }
+    },
+    {
+      "image": "supabase/realtime:v2.143.3",
+      "name": "Realtime",
+      "publicNetworking": false,
+      "startCommand": null,
+      "variables": {
+        "API_JWT_SECRET": {
+          "note": "Railway reference variable.",
+          "value": "${{Gateway.JWT_SECRET}}"
+        },
+        "APP_NAME": {
+          "note": "Official default.",
+          "value": "realtime"
+        },
+        "DB_AFTER_CONNECT_QUERY": {
+          "note": "Official default.",
+          "value": "SET search_path TO _realtime"
+        },
+        "DB_ENC_KEY": {
+          "note": "Railway reference variable to the generated key on this same service.",
+          "value": "${{Realtime.REALTIME_DB_ENC_KEY}}"
+        },
+        "DB_HOST": {
+          "note": "Railway reference variable.",
+          "value": "${{Postgres.RAILWAY_PRIVATE_DOMAIN}}"
+        },
+        "DB_NAME": {
+          "note": "Official default.",
+          "value": "postgres"
+        },
+        "DB_PASSWORD": {
+          "note": "Railway reference variable.",
+          "value": "${{Postgres.POSTGRES_PASSWORD}}"
+        },
+        "DB_PORT": {
+          "note": "Official default.",
+          "value": "5432"
+        },
+        "DB_USER": {
+          "note": "Official default.",
+          "value": "supabase_admin"
+        },
+        "DISABLE_HEALTHCHECK_LOGGING": {
+          "note": "Official default.",
+          "value": "true"
+        },
+        "DNS_NODES": {
+          "note": "Official default.",
+          "value": "''"
+        },
+        "ERL_AFLAGS": {
+          "note": "Official default.",
+          "value": "-proto_dist inet_tcp"
+        },
+        "METRICS_JWT_SECRET": {
+          "note": "Railway reference variable.",
+          "value": "${{Gateway.JWT_SECRET}}"
+        },
+        "PORT": {
+          "note": "Official default.",
+          "value": "4000"
+        },
+        "REALTIME_DB_ENC_KEY": {
+          "note": "Generated at deploy time, defined here. Must be exactly 16 hex characters; Railway generation plus the entrypoint does not enforce length, so verify the generated value length at publish time.",
+          "value": "<generated at deploy time>"
+        },
+        "RLIMIT_NOFILE": {
+          "note": "Official default.",
+          "value": "10000"
+        },
+        "RUN_JANITOR": {
+          "note": "Official default.",
+          "value": "true"
+        },
+        "SECRET_KEY_BASE": {
+          "note": "Generated at deploy time, defined ONCE here, referenced by Supavisor.",
+          "value": "<generated at deploy time>"
+        },
+        "SEED_SELF_HOST": {
+          "note": "Official default.",
+          "value": "true"
+        }
+      }
+    },
+    {
+      "build": {
+        "dockerfilePath": "railway/services/storage/Dockerfile",
+        "note": "FROM supabase/storage-api:v1.81.0 plus an entrypoint that derives ANON_KEY and SERVICE_KEY from JWT_SECRET at startup."
+      },
+      "name": "Storage",
+      "publicNetworking": false,
+      "startCommand": null,
+      "variables": {
+        "ANON_KEY": {
+          "note": "DO NOT SET in the composer. Derived at container start by the Storage entrypoint from JWT_SECRET.",
+          "value": null
+        },
+        "AUTH_JWT_SECRET": {
+          "note": "Railway reference variable.",
+          "value": "${{Gateway.JWT_SECRET}}"
+        },
+        "AWS_ACCESS_KEY_ID": {
+          "note": "Railway reference variable to the StorageBucket credentials.",
+          "value": "${{StorageBucket.ACCESS_KEY_ID}}"
+        },
+        "AWS_SECRET_ACCESS_KEY": {
+          "note": "Railway reference variable to the StorageBucket credentials.",
+          "value": "${{StorageBucket.SECRET_ACCESS_KEY}}"
+        },
+        "DATABASE_URL": {
+          "note": "Railway reference variables.",
+          "value": "postgres://postgres:${{Postgres.POSTGRES_PASSWORD}}@${{Postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/postgres"
+        },
+        "ENABLE_IMAGE_TRANSFORMATION": {
+          "note": "Official default.",
+          "value": "true"
+        },
+        "FILE_SIZE_LIMIT": {
+          "note": "Official default: 50 MB.",
+          "value": "52428800"
+        },
+        "FILE_STORAGE_BACKEND_PATH": {
+          "note": "Official default. Unused with the S3 backend, kept for compatibility.",
+          "value": "/var/lib/storage"
+        },
+        "GLOBAL_S3_BUCKET": {
+          "note": "Railway reference variable to the StorageBucket name.",
+          "value": "${{StorageBucket.BUCKET}}"
+        },
+        "GLOBAL_S3_ENDPOINT": {
+          "note": "Railway reference variable to the StorageBucket endpoint. Verify the endpoint format (full URL vs host) at first live deploy.",
+          "value": "${{StorageBucket.ENDPOINT}}"
+        },
+        "GLOBAL_S3_FORCE_PATH_STYLE": {
+          "note": "Railway Buckets use virtual-hosted style URLs, so path style stays off.",
+          "value": "false"
+        },
+        "GLOBAL_S3_PROTOCOL": {
+          "note": "Official S3 backend default.",
+          "value": "https"
+        },
+        "IMGPROXY_URL": {
+          "note": "Railway reference variable plus the imgproxy internal port.",
+          "value": "http://${{Imgproxy.RAILWAY_PRIVATE_DOMAIN}}:5001"
+        },
+        "POSTGREST_URL": {
+          "note": "Railway reference variable plus the REST internal port.",
+          "value": "http://${{REST.RAILWAY_PRIVATE_DOMAIN}}:3000"
+        },
+        "REGION": {
+          "note": "Railway reference variable to the StorageBucket region.",
+          "value": "${{StorageBucket.REGION}}"
+        },
+        "REQUEST_ALLOW_X_FORWARDED_PATH": {
+          "note": "Official default.",
+          "value": "true"
+        },
+        "S3_PROTOCOL_ACCESS_KEY_ID": {
+          "note": "Generated at deploy time, defined here. These are storage-api's own S3-protocol credentials, separate from the backend bucket credentials.",
+          "value": "<generated at deploy time>"
+        },
+        "S3_PROTOCOL_ACCESS_KEY_SECRET": {
+          "note": "Generated at deploy time, defined here.",
+          "value": "<generated at deploy time>"
+        },
+        "SERVICE_KEY": {
+          "note": "DO NOT SET in the composer. Derived at container start by the Storage entrypoint from JWT_SECRET.",
+          "value": null
+        },
+        "STORAGE_BACKEND": {
+          "note": "s3: files live in the Railway Bucket, not on a local disk.",
+          "value": "s3"
+        },
+        "STORAGE_PUBLIC_URL": {
+          "note": "Railway reference variable.",
+          "value": "https://${{Gateway.RAILWAY_PUBLIC_DOMAIN}}"
+        },
+        "TENANT_ID": {
+          "note": "Official default.",
+          "value": "stub"
+        }
+      }
+    },
+    {
+      "image": "darthsim/imgproxy:v3.31.4",
+      "name": "Imgproxy",
+      "publicNetworking": false,
+      "startCommand": null,
+      "variables": {
+        "IMGPROXY_AUTO_WEBP": {
+          "note": "Official default.",
+          "value": "true"
+        },
+        "IMGPROXY_BIND": {
+          "note": "Official default.",
+          "value": ":5001"
+        },
+        "IMGPROXY_LOCAL_FILESYSTEM_ROOT": {
+          "note": "Official default. No shared volume in v1: the image-transformation fetch path is untested, see stillUntestedAtPublish.",
+          "value": "/"
+        },
+        "IMGPROXY_MAX_SRC_RESOLUTION": {
+          "note": "Official default.",
+          "value": "16.8"
+        },
+        "IMGPROXY_USE_ETAG": {
+          "note": "Official default.",
+          "value": "true"
+        }
+      }
+    },
+    {
+      "image": "supabase/postgres-meta:v0.100.0",
+      "name": "Meta",
+      "publicNetworking": false,
+      "startCommand": null,
+      "variables": {
+        "CRYPTO_KEY": {
+          "note": "Railway reference variable to the generated key on this same service.",
+          "value": "${{Meta.PG_META_CRYPTO_KEY}}"
+        },
+        "PG_META_CRYPTO_KEY": {
+          "note": "Generated at deploy time, defined here, referenced by Studio.",
+          "value": "<generated at deploy time>"
+        },
+        "PG_META_DB_HOST": {
+          "note": "Railway reference variable.",
+          "value": "${{Postgres.RAILWAY_PRIVATE_DOMAIN}}"
+        },
+        "PG_META_DB_NAME": {
+          "note": "Official default.",
+          "value": "postgres"
+        },
+        "PG_META_DB_PASSWORD": {
+          "note": "Railway reference variable.",
+          "value": "${{Postgres.POSTGRES_PASSWORD}}"
+        },
+        "PG_META_DB_PORT": {
+          "note": "Official default.",
+          "value": "5432"
+        },
+        "PG_META_DB_USER": {
+          "note": "Official default.",
+          "value": "postgres"
+        },
+        "PG_META_PORT": {
+          "note": "Official default.",
+          "value": "8080"
+        }
+      }
+    },
+    {
+      "build": {
+        "dockerfilePath": "railway/services/functions/Dockerfile",
+        "note": "FROM supabase/edge-runtime:v1.77.4 plus an entrypoint that derives SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY from JWT_SECRET at startup, plus the official functions directory (main worker and hello example) copied into /home/deno/functions/."
+      },
+      "name": "Functions",
+      "publicNetworking": false,
+      "startCommand": null,
+      "variables": {
+        "JWT_SECRET": {
+          "note": "Railway reference variable.",
+          "value": "${{Gateway.JWT_SECRET}}"
+        },
+        "SUPABASE_ANON_KEY": {
+          "note": "DO NOT SET in the composer. Derived at container start by the Functions entrypoint from JWT_SECRET.",
+          "value": null
+        },
+        "SUPABASE_DB_URL": {
+          "note": "Railway reference variables.",
+          "value": "postgresql://postgres:${{Postgres.POSTGRES_PASSWORD}}@${{Postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/postgres"
+        },
+        "SUPABASE_PUBLIC_URL": {
+          "note": "Railway reference variable.",
+          "value": "https://${{Gateway.RAILWAY_PUBLIC_DOMAIN}}"
+        },
+        "SUPABASE_PUBLISHABLE_KEYS": {
+          "note": "Empty: legacy-only mode.",
+          "value": "{\"default\":\"\"}"
+        },
+        "SUPABASE_SECRET_KEYS": {
+          "note": "Empty: legacy-only mode.",
+          "value": "{\"default\":\"\"}"
+        },
+        "SUPABASE_SERVICE_ROLE_KEY": {
+          "note": "DO NOT SET in the composer. Derived at container start by the Functions entrypoint from JWT_SECRET.",
+          "value": null
+        },
+        "SUPABASE_URL": {
+          "note": "Railway reference variable plus the gateway internal port.",
+          "value": "http://${{Gateway.RAILWAY_PRIVATE_DOMAIN}}:8000"
+        },
+        "VERIFY_JWT": {
+          "note": "Official default: false. Flip to true on Functions when you want every function call to require a valid JWT.",
+          "value": "false"
+        }
+      }
+    },
+    {
+      "build": {
+        "dockerfilePath": "railway/services/supavisor/Dockerfile",
+        "note": "FROM supabase/supavisor:2.9.13 plus the official pooler.exs copied to /etc/pooler/pooler.exs. The start command (set in the Dockerfile CMD) migrates, evaluates the pooler config, then starts the server."
+      },
+      "name": "Supavisor",
+      "publicNetworking": false,
+      "startCommand": null,
+      "variables": {
+        "API_JWT_SECRET": {
+          "note": "Railway reference variable.",
+          "value": "${{Gateway.JWT_SECRET}}"
+        },
+        "CLUSTER_POSTGRES": {
+          "note": "Official default.",
+          "value": "true"
+        },
+        "DATABASE_URL": {
+          "note": "Railway reference variables.",
+          "value": "postgres://postgres:${{Postgres.POSTGRES_PASSWORD}}@${{Postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/postgres"
+        },
+        "DB_POOL_SIZE": {
+          "note": "Official default.",
+          "value": "5"
+        },
+        "ERL_AFLAGS": {
+          "note": "Official default.",
+          "value": "-proto_dist inet_tcp"
+        },
+        "METRICS_JWT_SECRET": {
+          "note": "Railway reference variable.",
+          "value": "${{Gateway.JWT_SECRET}}"
+        },
+        "POOLER_DEFAULT_POOL_SIZE": {
+          "note": "Official default.",
+          "value": "20"
+        },
+        "POOLER_MAX_CLIENT_CONN": {
+          "note": "Official default.",
+          "value": "100"
+        },
+        "POOLER_POOL_MODE": {
+          "note": "Official default.",
+          "value": "transaction"
+        },
+        "POOLER_TENANT_ID": {
+          "note": "Replaces the official placeholder. Any consistent identifier works; apps connect as postgres.<tenant>.",
+          "value": "supabase"
+        },
+        "POOLER_URL_TRANSACTION": {
+          "note": "Reference variable for apps on Railway that want pooled connections. Verify the 6543 port at first live deploy; supavisor PORT=4000 is its internal API port, not the pooler port.",
+          "value": "postgres://postgres.supabase:${{Postgres.POSTGRES_PASSWORD}}@${{Supavisor.RAILWAY_PRIVATE_DOMAIN}}:6543/postgres"
+        },
+        "PORT": {
+          "note": "Official default.",
+          "value": "4000"
+        },
+        "POSTGRES_DB": {
+          "note": "Official default.",
+          "value": "postgres"
+        },
+        "POSTGRES_HOST": {
+          "note": "Railway reference variable.",
+          "value": "${{Postgres.RAILWAY_PRIVATE_DOMAIN}}"
+        },
+        "POSTGRES_PASSWORD": {
+          "note": "Railway reference variable.",
+          "value": "${{Postgres.POSTGRES_PASSWORD}}"
+        },
+        "POSTGRES_PORT": {
+          "note": "Official default.",
+          "value": "5432"
+        },
+        "REGION": {
+          "note": "Official default.",
+          "value": "local"
+        },
+        "SECRET_KEY_BASE": {
+          "note": "Railway reference variable.",
+          "value": "${{Realtime.SECRET_KEY_BASE}}"
+        },
+        "VAULT_ENC_KEY": {
+          "note": "Generated at deploy time, defined here.",
+          "value": "<generated at deploy time>"
+        }
+      }
+    }
+  ],
+  "sourceBranch": "main",
+  "sourceRepo": "https://github.com/AdeelAhmedKhan/supabase-selfhost-railway",
+  "stillUntestedAtPublish": [
+    "Live Railway deploy of this template (waits for a paid Railway plan to be active).",
+    "Storage S3 endpoint format (full URL vs host) against the Railway Bucket.",
+    "Gateway PORT override behavior for public and private traffic.",
+    "Inter-service private-domain ports (all services on their official internal ports).",
+    "Imgproxy image-transformation fetch path without a shared storage volume.",
+    "Supavisor pooler URL port (6543 assumed).",
+    "Functions main worker boot with the official main/index.ts and hello example.",
+    "First-run cost: 11 services plus a bucket. Watch one day of usage before judging."
+  ],
+  "verifyAtPublish": [
+    "Gateway self-reference SUPABASE_PUBLIC_URL=${{Gateway.RAILWAY_PUBLIC_DOMAIN}} is accepted by the composer; if rejected, leave it empty on Gateway and keep the cross-service references.",
+    "PORT=8000 explicit on Gateway is accepted (edge and private traffic both on 8000).",
+    "Bucket reference variables resolve: BUCKET, ENDPOINT, ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION.",
+    "Dockerfile paths resolve with repo-root build context: railway/services/gateway, studio, storage, functions, db, supavisor.",
+    "Service names match every ${{...}} reference exactly; a composer rename breaks references.",
+    "REALTIME_DB_ENC_KEY generated value is 16 hex characters; VAULT_ENC_KEY and PG_META_CRYPTO_KEY meet their minimum lengths."
+  ]
+}
