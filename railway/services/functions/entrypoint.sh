@@ -26,4 +26,16 @@ exp=$((iat + 5 * 3600 * 24 * 365))
 export SUPABASE_ANON_KEY=$(gen_token "{\"role\":\"anon\",\"iss\":\"supabase\",\"iat\":$iat,\"exp\":$exp}")
 export SUPABASE_SERVICE_ROLE_KEY=$(gen_token "{\"role\":\"service_role\",\"iss\":\"supabase\",\"iat\":$iat,\"exp\":$exp}")
 
-exec "$@"
+# The stock image's ENTRYPOINT is the edge-runtime binary itself, so
+# the CMD's first word ("start") is a subcommand of that binary, not
+# a program on PATH. This wrapper replaced the entrypoint, so resolve
+# the binary explicitly before exec, or "start" is not found.
+EDGE_BIN=$(command -v edge-runtime || true)
+if [ -z "$EDGE_BIN" ]; then
+  for _candidate in /usr/local/bin/edge-runtime /usr/bin/edge-runtime /opt/edge-runtime/edge-runtime; do
+    if [ -x "$_candidate" ]; then EDGE_BIN="$_candidate"; break; fi
+  done
+fi
+if [ -z "$EDGE_BIN" ]; then echo "error: edge-runtime binary not found" >&2; exit 1; fi
+
+exec "$EDGE_BIN" "$@"
