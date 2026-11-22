@@ -259,6 +259,10 @@
     "SUPABASE_URL": {
      "note": "Railway reference variable plus the gateway internal port.",
      "value": "http://${{Gateway.RAILWAY_PRIVATE_DOMAIN}}:8000"
+    },
+    "JWT_SECRET": {
+     "value": "${{Gateway.JWT_SECRET}}",
+     "note": "Required by this service's wrapper entrypoint, which derives the legacy API keys from JWT_SECRET at container start. The spec previously carried only AUTH_JWT_SECRET, so the entrypoint exited on \"JWT_SECRET is not set\" and the service showed Online while dead (proven on the 2026-11-22 test deploy: storage schema stayed empty)."
     }
    },
    "volumes": [
@@ -624,6 +628,10 @@
     "TENANT_ID": {
      "note": "Official default.",
      "value": "stub"
+    },
+    "JWT_SECRET": {
+     "value": "${{Gateway.JWT_SECRET}}",
+     "note": "Required by this service's wrapper entrypoint, which derives the legacy API keys from JWT_SECRET at container start. The spec previously carried only AUTH_JWT_SECRET, so the entrypoint exited on \"JWT_SECRET is not set\" and the service showed Online while dead (proven on the 2026-11-22 test deploy: storage schema stayed empty)."
     }
    }
   },
