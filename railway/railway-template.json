@@ -185,8 +185,8 @@
      "value": "false"
     },
     "HOSTNAME": {
-     "note": "Official default.",
-     "value": "0.0.0.0"
+     "note": "Railway private networking is IPv6: a service bound to 0.0.0.0 (IPv4 only) is unreachable from the other services, which is why the gateway returned 503 for Studio even with Studio Online on the right port (proven on the 2026-11-22 test deploy; Auth worked throughout because Go binds dual stack by default). :: binds the IPv6 wildcard, which also accepts IPv4 on Linux.",
+     "value": "::"
     },
     "OPENAI_API_KEY": {
      "note": "Optional. Leave empty unless you want Studio's AI features.",
@@ -263,6 +263,10 @@
     "JWT_SECRET": {
      "value": "${{Gateway.JWT_SECRET}}",
      "note": "Required by this service's wrapper entrypoint, which derives the legacy API keys from JWT_SECRET at container start. The spec previously carried only AUTH_JWT_SECRET, so the entrypoint exited on \"JWT_SECRET is not set\" and the service showed Online while dead (proven on the 2026-11-22 test deploy: storage schema stayed empty)."
+    },
+    "PORT": {
+     "value": "3000",
+     "note": "The studio image sets PORT=3000 in its own environment and the gateway Envoy config routes Studio traffic to port 3000, but Railway injects its own PORT (8080) into services, which made Studio listen on 8080 while the gateway health-checked 3000 and returned 503 (proven on the 2026-11-22 test deploy). Pinning PORT here restores the image default."
     }
    },
    "volumes": [
@@ -445,6 +449,10 @@
     "PGRST_JWT_SECRET": {
      "note": "Railway reference variable. Legacy mode: the raw secret, not a JWKS.",
      "value": "${{Gateway.JWT_SECRET}}"
+    },
+    "PGRST_SERVER_HOST": {
+     "value": "::",
+     "note": "PostgREST binds IPv4 only by default. Railway private networking is IPv6, so the gateway could not connect to REST (503) even with REST Online (proven on the 2026-11-22 test deploy). The literal :: binds the IPv6 wildcard, which also accepts IPv4 on Linux. Two wrong spellings are proven dead ends: \"!*\" is passed to DNS resolution literally and crash-loops PostgREST, and \"*\" still left it on the IPv4 wildcard only (API server listening on 0.0.0.0, gateway still 503)."
     }
    }
   },
@@ -558,8 +566,8 @@
      "value": "${{StorageBucket.SECRET_ACCESS_KEY}}"
     },
     "DATABASE_URL": {
-     "note": "Railway reference variables.",
-     "value": "postgres://postgres:${{Postgres.POSTGRES_PASSWORD}}@${{Postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/postgres"
+     "note": "Connects as supabase_storage_admin, as in the official compose. The storage schema grants CREATE only to that role (postgres has USAGE only and is not a superuser in this image), so migrations fail with \"permission denied for schema storage\" when connected as postgres (proven on the 2026-11-22 test deploy).",
+     "value": "postgres://supabase_storage_admin:${{Postgres.POSTGRES_PASSWORD}}@${{Postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/postgres"
     },
     "ENABLE_IMAGE_TRANSFORMATION": {
      "note": "Official default.",
@@ -632,6 +640,14 @@
     "JWT_SECRET": {
      "value": "${{Gateway.JWT_SECRET}}",
      "note": "Required by this service's wrapper entrypoint, which derives the legacy API keys from JWT_SECRET at container start. The spec previously carried only AUTH_JWT_SECRET, so the entrypoint exited on \"JWT_SECRET is not set\" and the service showed Online while dead (proven on the 2026-11-22 test deploy: storage schema stayed empty)."
+    },
+    "PORT": {
+     "value": "5000",
+     "note": "storage-api listens on PORT (default 5000) and the gateway Envoy config routes Storage traffic to port 5000, but Railway injects its own PORT (8080) into services, which made the gateway fail to connect (503 upstream connect error) even with Storage Online (proven on the 2026-11-22 test deploy). Same trap as Studio PORT=3000."
+    },
+    "HOST": {
+     "value": "::",
+     "note": "storage-api (Fastify) binds the IPv4 wildcard by default. Railway private networking is IPv6, so the gateway could not connect (503) even with Storage Online (proven on the 2026-11-22 test deploy). :: binds the IPv6 wildcard, which also accepts IPv4 on Linux. Same fix as Studio HOSTNAME."
     }
    }
   },
