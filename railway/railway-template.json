@@ -716,6 +716,10 @@
     "PG_META_PORT": {
      "note": "Official default.",
      "value": "8080"
+    },
+    "PG_META_HOST": {
+     "value": "::",
+     "note": "pg-meta binds the IPv4 wildcard by default. Railway private networking is IPv6, so the gateway could not connect to Meta (503) even with Meta Online (proven on the 2026-11-22 test deploy, after a service key derived with the gateway timestamps passed its access check). :: binds the IPv6 wildcard."
     }
    }
   },
@@ -857,13 +861,8 @@
  "sourceBranch": "main",
  "sourceRepo": "https://github.com/AdeelAhmedKhan/supabase-selfhost-railway",
  "stillUntestedAtPublish": [
-  "Live Railway deploy of this template (waits for a paid Railway plan to be active).",
-  "Storage S3 endpoint format (full URL vs host) against the Railway Bucket.",
-  "Gateway PORT override behavior for public and private traffic.",
-  "Inter-service private-domain ports (all services on their official internal ports).",
   "Imgproxy image-transformation fetch path without a shared storage volume.",
-  "Supavisor pooler URL port (6543 assumed).",
-  "Functions main worker boot with the official main/index.ts and hello example.",
+  "Supavisor pooled connections (the pooler runs and its schema migrates; no client has connected through it yet).",
   "First-run cost: 11 services plus a bucket. Watch one day of usage before judging."
  ],
  "verifyAtPublish": [

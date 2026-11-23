@@ -114,12 +114,23 @@ gateway key derivation and config generation were run
 locally against the official Envoy templates (see
 docs/static-verification-2026-11-03.md).
 
-Not yet tested on a live Railway deploy: the first real
-deploy, the storage bucket connection details, the gateway
-port behavior, the pooler connection URL, image
-transformation, and the first day cost. Those checks happen
-on the first live deploy, and this page will be updated
-with the results.
+Live verified on Railway on 2026-11-22 and 2026-11-23: a
+fresh deploy with zero manual input brought all 11 services
+up, and every path was then exercised through the public
+gateway URL. Studio loads behind the dashboard login. The
+auth health endpoint answers. The REST API answers queries.
+A storage bucket was created and a file was uploaded and
+downloaded back intact. Realtime answers its endpoint. The
+functions runtime answers requests. A SQL query run through
+the gateway metadata endpoint returned its result. The
+database itself was checked directly: PostgreSQL 17.6 with
+every schema, role, and extension the stack creates, and
+the storage tables in place.
+
+Still not exercised live: image transformation through
+Imgproxy, pooled connections through Supavisor (it runs and
+its own schema migrates, but no client has connected through
+the pooler yet), and the first day cost of the full stack.
 
 ## Upgrades
 
