@@ -351,19 +351,19 @@
      "value": "true"
     },
     "GOTRUE_MAILER_URLPATHS_CONFIRMATION": {
-     "note": "Empty until SMTP is configured.",
+     "note": "Empty until SMTP is configured. Marked OPTIONAL in the template: the 2026-11-23 acceptance deploy showed that empty variables added as required make the deploy flow demand values and block the zero-input deploy.",
      "value": ""
     },
     "GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE": {
-     "note": "Empty until SMTP is configured.",
+     "note": "Empty until SMTP is configured. Marked OPTIONAL in the template: the 2026-11-23 acceptance deploy showed that empty variables added as required make the deploy flow demand values and block the zero-input deploy.",
      "value": ""
     },
     "GOTRUE_MAILER_URLPATHS_INVITE": {
-     "note": "Empty until SMTP is configured.",
+     "note": "Empty until SMTP is configured. Marked OPTIONAL in the template: the 2026-11-23 acceptance deploy showed that empty variables added as required make the deploy flow demand values and block the zero-input deploy.",
      "value": ""
     },
     "GOTRUE_MAILER_URLPATHS_RECOVERY": {
-     "note": "Empty until SMTP is configured.",
+     "note": "Empty until SMTP is configured. Marked OPTIONAL in the template: the 2026-11-23 acceptance deploy showed that empty variables added as required make the deploy flow demand values and block the zero-input deploy.",
      "value": ""
     },
     "GOTRUE_SITE_URL": {
@@ -375,7 +375,7 @@
      "value": "false"
     },
     "GOTRUE_SMTP_ADMIN_EMAIL": {
-     "note": "Empty until SMTP is configured.",
+     "note": "Empty until SMTP is configured. Marked OPTIONAL in the template: the 2026-11-23 acceptance deploy showed that empty variables added as required make the deploy flow demand values and block the zero-input deploy.",
      "value": ""
     },
     "GOTRUE_SMTP_HOST": {
@@ -383,7 +383,7 @@
      "value": ""
     },
     "GOTRUE_SMTP_PASS": {
-     "note": "Empty until SMTP is configured.",
+     "note": "Empty until SMTP is configured. Marked OPTIONAL in the template: the 2026-11-23 acceptance deploy showed that empty variables added as required make the deploy flow demand values and block the zero-input deploy.",
      "value": ""
     },
     "GOTRUE_SMTP_PORT": {
@@ -391,11 +391,11 @@
      "value": ""
     },
     "GOTRUE_SMTP_SENDER_NAME": {
-     "note": "Empty until SMTP is configured.",
+     "note": "Empty until SMTP is configured. Marked OPTIONAL in the template: the 2026-11-23 acceptance deploy showed that empty variables added as required make the deploy flow demand values and block the zero-input deploy.",
      "value": ""
     },
     "GOTRUE_SMTP_USER": {
-     "note": "Empty until SMTP is configured.",
+     "note": "Empty until SMTP is configured. Marked OPTIONAL in the template: the 2026-11-23 acceptance deploy showed that empty variables added as required make the deploy flow demand values and block the zero-input deploy.",
      "value": ""
     },
     "GOTRUE_URI_ALLOW_LIST": {
