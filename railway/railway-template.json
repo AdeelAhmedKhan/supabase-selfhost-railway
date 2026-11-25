@@ -28,7 +28,7 @@
   {
    "build": {
     "dockerfilePath": "railway/services/gateway/Dockerfile",
-    "note": "Railway builds this image at deploy time from the fork. The entrypoint derives ANON_KEY and SERVICE_ROLE_KEY from JWT_SECRET, builds the Envoy config from the official templates, points backend clusters at Railway private domains, and prints the Supabase URL and anon key to the deploy log."
+    "note": "Railway builds this image at deploy time from the fork. The entrypoint derives ANON_KEY and SERVICE_ROLE_KEY from JWT_SECRET, builds the Envoy config from the official templates, points backend clusters at Railway private domains, and prints the Supabase URL and anon key to the deploy log. Envoy v1.39.6 (self-hosted/v0.8.4)."
    },
    "healthcheck": {
     "note": "Envoy admin lives on 127.0.0.1:9901 inside the container and is not public. Health is proven by the gateway answering on its public domain after deploy (first deploy check), not by process liveness alone."
@@ -158,7 +158,7 @@
   {
    "build": {
     "dockerfilePath": "railway/services/studio/Dockerfile",
-    "note": "FROM supabase/studio:2026.10.12-sha-3699278 plus an entrypoint that derives SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY from JWT_SECRET at startup."
+    "note": "FROM supabase/studio:2026.11.02-sha-a05e7ec plus an entrypoint that derives SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY from JWT_SECRET at startup."
    },
    "name": "Studio",
    "publicNetworking": false,
@@ -457,7 +457,7 @@
    }
   },
   {
-   "image": "supabase/realtime:v2.143.3",
+   "image": "supabase/realtime:v2.148.3",
    "name": "Realtime",
    "publicNetworking": false,
    "startCommand": null,
@@ -543,7 +543,7 @@
   {
    "build": {
     "dockerfilePath": "railway/services/storage/Dockerfile",
-    "note": "FROM supabase/storage-api:v1.81.0 plus an entrypoint that derives ANON_KEY and SERVICE_KEY from JWT_SECRET at startup."
+    "note": "FROM supabase/storage-api:v1.89.12 plus an entrypoint that derives ANON_KEY and SERVICE_KEY from JWT_SECRET at startup."
    },
    "name": "Storage",
    "publicNetworking": false,
@@ -652,7 +652,7 @@
    }
   },
   {
-   "image": "darthsim/imgproxy:v3.31.4",
+   "image": "darthsim/imgproxy:v4.0.21",
    "name": "Imgproxy",
    "publicNetworking": false,
    "startCommand": null,
@@ -726,7 +726,7 @@
   {
    "build": {
     "dockerfilePath": "railway/services/functions/Dockerfile",
-    "note": "FROM supabase/edge-runtime:v1.77.4 plus an entrypoint that derives SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY from JWT_SECRET at startup, plus the official functions directory (main worker and hello example) copied into /home/deno/functions/."
+    "note": "FROM supabase/edge-runtime:v1.77.9 plus an entrypoint that derives SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY from JWT_SECRET at startup, plus the official functions directory (main worker and hello example) copied into /home/deno/functions/."
    },
    "name": "Functions",
    "publicNetworking": false,
@@ -863,7 +863,8 @@
  "stillUntestedAtPublish": [
   "Imgproxy image-transformation fetch path without a shared storage volume.",
   "Supavisor pooled connections (the pooler runs and its schema migrates; no client has connected through it yet).",
-  "First-run cost: 11 services plus a bucket. Watch one day of usage before judging."
+  "First-run cost: 11 services plus a bucket. Watch one day of usage before judging.",
+  "Edge Functions CORS after the v0.8.4 gateway change: the gateway no longer adds CORS headers or answers preflights on /functions/v1/, so browser-called functions must set their own CORS headers; the sample hello function sets none, so a browser preflight to it is untested."
  ],
  "verifyAtPublish": [
   "Gateway self-reference SUPABASE_PUBLIC_URL=${{Gateway.RAILWAY_PUBLIC_DOMAIN}} is accepted by the composer; if rejected, leave it empty on Gateway and keep the cross-service references.",

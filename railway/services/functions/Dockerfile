@@ -1,4 +1,4 @@
-FROM supabase/edge-runtime:v1.77.4
+FROM supabase/edge-runtime:v1.77.9
 RUN (command -v openssl >/dev/null 2>&1) || (command -v apt-get >/dev/null 2>&1 && apt-get update && apt-get install -y openssl) || (command -v apk >/dev/null 2>&1 && apk add --no-cache openssl) || true
 COPY railway/services/functions/entrypoint.sh /entrypoint.sh
 COPY docker/volumes/functions/ /home/deno/functions/

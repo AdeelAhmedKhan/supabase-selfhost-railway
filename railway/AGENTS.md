@@ -16,17 +16,17 @@ House rules for this template. Read before changing anything.
   came from the official compose, keep it. If it is a Railway
   adaptation, say so in the spec file.
 
-## Image pins (last synced from official master)
+## Image pins (last synced: self-hosted/v0.8.4, 2026-11-05; synced into this repo 2026-11-25)
 
-- Studio supabase/studio:2026.10.12-sha-3699278
-- Gateway envoyproxy/envoy:v1.39.1
+- Studio supabase/studio:2026.11.02-sha-a05e7ec
+- Gateway envoyproxy/envoy:v1.39.6
 - Auth supabase/gotrue:v2.197.0
 - REST postgrest/postgrest:v14.18
-- Realtime supabase/realtime:v2.143.3
-- Storage supabase/storage-api:v1.81.0
-- Imgproxy darthsim/imgproxy:v3.31.4
+- Realtime supabase/realtime:v2.148.3
+- Storage supabase/storage-api:v1.89.12
+- Imgproxy darthsim/imgproxy:v4.0.21
 - Meta supabase/postgres-meta:v0.100.0
-- Functions supabase/edge-runtime:v1.77.4
+- Functions supabase/edge-runtime:v1.77.9
 - Postgres supabase/postgres:17.6.1.136
 - Supavisor supabase/supavisor:2.9.13
 

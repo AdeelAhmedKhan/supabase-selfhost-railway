@@ -1,4 +1,4 @@
-FROM envoyproxy/envoy:v1.39.1
+FROM envoyproxy/envoy:v1.39.6
 COPY docker/volumes/api/envoy/envoy.yaml /etc/envoy/envoy.yaml
 COPY docker/volumes/api/envoy/cds.yaml /etc/envoy/cds.yaml
 COPY docker/volumes/api/envoy/lds.template.yaml /etc/envoy/lds.template.yaml
